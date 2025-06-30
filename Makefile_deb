@@ -1,0 +1,126 @@
+# Makefile для сборки .deb пакета
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -Wextra -O2 -fPIC
+LDFLAGS = -ldl
+
+# Имя пакета
+PACKAGE_NAME = favourite-crypto
+PACKAGE_VERSION = 1.0.0
+PACKAGE_ARCH = amd64
+
+# Директории
+CAESAR_DIR = caesar
+TARABAR_DIR = tarabar
+PORTA_DIR = porta
+
+# Исходные файлы
+MAIN_SRC = main.cpp
+CAESAR_SRC = $(CAESAR_DIR)/caesar.cpp
+TARABAR_SRC = $(TARABAR_DIR)/tarabar.cpp
+PORTA_SRC = $(PORTA_DIR)/porta.cpp
+
+# Объектные файлы
+MAIN_OBJ = main.o
+CAESAR_OBJ = $(CAESAR_DIR)/caesar.o
+TARABAR_OBJ = $(TARABAR_DIR)/tarabar.o
+PORTA_OBJ = $(PORTA_DIR)/porta.o
+
+# Динамические библиотеки (.so для Linux)
+CAESAR_LIB = $(CAESAR_DIR)/libcaesar.so
+TARABAR_LIB = $(TARABAR_DIR)/libtarabar.so
+PORTA_LIB = $(PORTA_DIR)/libporta.so
+
+# Исполняемый файл
+TARGET = favourite_app
+
+# Директории для .deb пакета
+DEB_DIR = deb
+DEB_CONTROL_DIR = $(DEB_DIR)/DEBIAN
+DEB_BIN_DIR = $(DEB_DIR)/usr/bin
+DEB_LIB_DIR = $(DEB_DIR)/usr/lib/$(PACKAGE_NAME)
+DEB_SHARE_DIR = $(DEB_DIR)/usr/share/$(PACKAGE_NAME)
+
+# Цель по умолчанию
+all: $(TARGET) $(CAESAR_LIB) $(TARABAR_LIB) $(PORTA_LIB)
+
+# Основная программа
+$(TARGET): $(MAIN_OBJ) $(CAESAR_OBJ) $(TARABAR_OBJ) $(PORTA_OBJ)
+	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+
+# Объектные файлы
+$(MAIN_OBJ): $(MAIN_SRC)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(CAESAR_OBJ): $(CAESAR_SRC)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(TARABAR_OBJ): $(TARABAR_SRC)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(PORTA_OBJ): $(PORTA_SRC)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Динамические библиотеки (.so)
+$(CAESAR_LIB): $(CAESAR_OBJ)
+	$(CXX) $(CXXFLAGS) -shared -o $@ $<
+
+$(TARABAR_LIB): $(TARABAR_OBJ)
+	$(CXX) $(CXXFLAGS) -shared -o $@ $<
+
+$(PORTA_LIB): $(PORTA_OBJ)
+	$(CXX) $(CXXFLAGS) -shared -o $@ $<
+
+# Создание структуры .deb пакета
+deb-prepare: all
+	mkdir -p $(DEB_CONTROL_DIR)
+	mkdir -p $(DEB_BIN_DIR)
+	mkdir -p $(DEB_LIB_DIR)
+	mkdir -p $(DEB_SHARE_DIR)
+	
+	# Копирование файлов
+	cp $(TARGET) $(DEB_BIN_DIR)/
+	cp $(CAESAR_LIB) $(DEB_LIB_DIR)/
+	cp $(TARABAR_LIB) $(DEB_LIB_DIR)/
+	cp $(PORTA_LIB) $(DEB_LIB_DIR)/
+	
+	# Создание control файла
+	@echo "Package: $(PACKAGE_NAME)" > $(DEB_CONTROL_DIR)/control
+	@echo "Version: $(PACKAGE_VERSION)" >> $(DEB_CONTROL_DIR)/control
+	@echo "Architecture: $(PACKAGE_ARCH)" >> $(DEB_CONTROL_DIR)/control
+	@echo "Maintainer: Your Name <your.email@example.com>" >> $(DEB_CONTROL_DIR)/control
+	@echo "Depends: libc6, libstdc++6" >> $(DEB_CONTROL_DIR)/control
+	@echo "Description: Universal encryption application" >> $(DEB_CONTROL_DIR)/control
+	@echo " A comprehensive encryption tool supporting multiple ciphers:" >> $(DEB_CONTROL_DIR)/control
+	@echo " - Caesar cipher" >> $(DEB_CONTROL_DIR)/control
+	@echo " - Tarabar cipher" >> $(DEB_CONTROL_DIR)/control
+	@echo " - Porta cipher" >> $(DEB_CONTROL_DIR)/control
+	@echo " Supports both text and binary files with automatic detection." >> $(DEB_CONTROL_DIR)/control
+
+# Сборка .deb пакета
+deb: deb-prepare
+	dpkg-deb --build $(DEB_DIR) $(PACKAGE_NAME)_$(PACKAGE_VERSION)_$(PACKAGE_ARCH).deb
+
+# Установка .deb пакета
+deb-install: deb
+	sudo dpkg -i $(PACKAGE_NAME)_$(PACKAGE_VERSION)_$(PACKAGE_ARCH).deb
+
+# Удаление .deb пакета
+deb-remove:
+	sudo dpkg -r $(PACKAGE_NAME)
+
+# Очистка
+clean:
+	rm -f $(MAIN_OBJ) $(CAESAR_OBJ) $(TARABAR_OBJ) $(PORTA_OBJ)
+	rm -f $(CAESAR_LIB) $(TARABAR_LIB) $(PORTA_LIB)
+	rm -f $(TARGET)
+	rm -rf $(DEB_DIR)
+	rm -f $(PACKAGE_NAME)_$(PACKAGE_VERSION)_$(PACKAGE_ARCH).deb
+
+# Пересборка
+rebuild: clean all
+
+# Запуск
+run: $(TARGET)
+	./$(TARGET)
+
+.PHONY: all clean rebuild run deb deb-prepare deb-install deb-remove 
